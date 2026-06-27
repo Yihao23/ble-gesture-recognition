@@ -14,6 +14,19 @@ whole point — it shows the inference layer is **sensor-source-agnostic**.
 
 ---
 
+## Demo
+
+<p align="center">
+  <img src="docs/images/demo.gif" width="250" alt="Live 6-axis IMU streaming over BLE"/>
+  &nbsp;&nbsp;&nbsp;
+  <img src="docs/images/phone_ui.png" width="250" alt="Android BLE-peripheral app UI"/>
+</p>
+
+<p align="center">
+  <em>Android BLE-peripheral app: 6-axis IMU streamed at ~60 Hz over BLE.
+  The blue Z-accelerometer bar rests at +9.81 m/s² — gravity.</em>
+</p>
+
 ## Architecture
 
 ```
