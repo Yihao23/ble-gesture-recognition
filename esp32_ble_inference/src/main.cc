@@ -37,10 +37,16 @@
   BT_UUID_128_ENCODE(0x0000ec00, 0xb87f, 0x490c, 0x92cb, 0x11ba5ea5167cULL)
 #define BT_UUID_GESTURE_CHR_VAL                                                \
   BT_UUID_128_ENCODE(0x0000ec01, 0xb87f, 0x490c, 0x92cb, 0x11ba5ea5167cULL)
+#define BT_UUID_GESTURE_RES_VAL                                                \
+  BT_UUID_128_ENCODE(0x0000ec02, 0xb87f, 0x490c, 0x92cb, 0x11ba5ea5167cULL)
 
 static struct bt_uuid_128 svc_uuid = BT_UUID_INIT_128(BT_UUID_GESTURE_SVC_VAL);
 static struct bt_uuid_128 chr_uuid = BT_UUID_INIT_128(BT_UUID_GESTURE_CHR_VAL);
+static struct bt_uuid_128 res_uuid = BT_UUID_INIT_128(BT_UUID_GESTURE_RES_VAL);
 static struct bt_uuid_16 ccc_uuid = BT_UUID_INIT_16(BT_UUID_GATT_CCC_VAL);
+
+/* Handle of the phone's result characteristic; we write the gesture index here. */
+static uint16_t result_handle = 0;
 
 /* === Connection / subscribe state ======================================= */
 static struct bt_conn *default_conn;
@@ -177,6 +183,23 @@ static uint8_t discover_cb(struct bt_conn *conn,
     } else {
       printk("[SUBSCRIBED] expecting 12-byte notifications now\n");
     }
+
+    /* Now discover the result characteristic so we can write predictions back. */
+    discover_params.uuid = &res_uuid.uuid;
+    discover_params.start_handle = BT_ATT_FIRST_ATTRIBUTE_HANDLE;
+    discover_params.end_handle = BT_ATT_LAST_ATTRIBUTE_HANDLE;
+    discover_params.type = BT_GATT_DISCOVER_CHARACTERISTIC;
+    err = bt_gatt_discover(conn, &discover_params);
+    if (err) {
+      printk("result char discover failed (err %d)\n", err);
+    }
+    return BT_GATT_ITER_STOP;
+  }
+  if (!bt_uuid_cmp(discover_params.uuid, &res_uuid.uuid)) {
+    /* Result characteristic found — store its value handle for writing. */
+    result_handle = bt_gatt_attr_value_handle(attr);
+    printk("Result char found, value handle %u — will write predictions back\n",
+           result_handle);
     return BT_GATT_ITER_STOP;
   }
   return BT_GATT_ITER_STOP;
@@ -219,6 +242,7 @@ static void disconnected(struct bt_conn *conn, uint8_t reason) {
     default_conn = NULL;
   }
   memset(&subscribe_params, 0, sizeof(subscribe_params));
+  result_handle = 0;
   start_scan();
 }
 
@@ -376,6 +400,12 @@ int main(void) {
     }
     printk("gesture = %-12s p=%.2f energy=%.0f\n", kLabels[best], (double)prob,
            (double)energy);
+
+    /* Send the recognized gesture index back to the phone (1 byte). */
+    if (result_handle && default_conn) {
+      uint8_t idx = (uint8_t)best;
+      bt_gatt_write_without_response(default_conn, result_handle, &idx, 1, false);
+    }
   }
   return 0;
 }

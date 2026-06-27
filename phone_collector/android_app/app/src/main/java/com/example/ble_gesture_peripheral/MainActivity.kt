@@ -71,6 +71,10 @@ class MainActivity : ComponentActivity() {
     @Volatile private var gz = 0f
     @Volatile private var notifyCount: Long = 0
     @Volatile private var streaming = false
+    @Volatile private var detected: String = "—"
+
+    // Label order must match training preprocess.py and the ESP32 firmware.
+    private val gestureLabels = listOf("idle", "single_tap", "double_tap", "shake", "rotate")
 
     private val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         arrayOf(
@@ -93,7 +97,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        ble = BleGattServer(this) { st -> status = st }
+        ble = BleGattServer(this, { st -> status = st }, { idx ->
+            detected = gestureLabels.getOrElse(idx) { "?" }
+        })
         imu = ImuStreamer(this) { payload, axv, ayv, azv, gxv, gyv, gzv ->
             ax = axv; ay = ayv; az = azv
             gx = gxv; gy = gyv; gz = gzv
@@ -122,6 +128,7 @@ class MainActivity : ComponentActivity() {
                     var gxUi by remember { mutableFloatStateOf(0f) }
                     var gyUi by remember { mutableFloatStateOf(0f) }
                     var gzUi by remember { mutableFloatStateOf(0f) }
+                    var detectedUi by remember { mutableStateOf("—") }
 
                     androidx.compose.runtime.LaunchedEffect(Unit) {
                         var lastCount = notifyCount
@@ -135,6 +142,7 @@ class MainActivity : ComponentActivity() {
                             streamingUi = streaming
                             axUi = ax; ayUi = ay; azUi = az
                             gxUi = gx; gyUi = gy; gzUi = gz
+                            detectedUi = detected
                         }
                     }
 
@@ -152,6 +160,21 @@ class MainActivity : ComponentActivity() {
                         )
 
                         StatusCard(statusUi, streamingUi, rateUi, counterUi)
+
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp)) {
+                                Text(
+                                    "Detected gesture (from ESP32)",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    detectedUi,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
 
                         SensorCard(
                             title = "Accelerometer",

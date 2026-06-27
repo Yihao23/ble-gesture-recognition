@@ -40,12 +40,14 @@ import java.util.UUID
 class BleGattServer(
     private val context: Context,
     private val onStateChange: (String) -> Unit,
+    private val onResult: (Int) -> Unit = {},   // gesture index written back by the ESP32
 ) {
     companion object {
         private const val TAG = "BleGattServer"
-        val SERVICE_UUID: UUID    = UUID.fromString("0000ec00-b87f-490c-92cb-11ba5ea5167c")
-        val IMU_CHAR_UUID: UUID   = UUID.fromString("0000ec01-b87f-490c-92cb-11ba5ea5167c")
-        val CCC_UUID: UUID        = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+        val SERVICE_UUID: UUID     = UUID.fromString("0000ec00-b87f-490c-92cb-11ba5ea5167c")
+        val IMU_CHAR_UUID: UUID    = UUID.fromString("0000ec01-b87f-490c-92cb-11ba5ea5167c")
+        val RESULT_CHAR_UUID: UUID = UUID.fromString("0000ec02-b87f-490c-92cb-11ba5ea5167c")
+        val CCC_UUID: UUID         = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
     }
 
     private val bluetoothManager =
@@ -92,9 +94,20 @@ class BleGattServer(
                 )
             )
         }
+        // Second characteristic: the ESP32 (GATT client) writes the recognized
+        // gesture index here. Write-only — this is an inbox, nothing is read out.
+        val resultChar = BluetoothGattCharacteristic(
+            RESULT_CHAR_UUID,
+            BluetoothGattCharacteristic.PROPERTY_WRITE or
+                BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE,
+            BluetoothGattCharacteristic.PERMISSION_WRITE
+        )
         val service = BluetoothGattService(
             SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY
-        ).apply { addCharacteristic(imuChar) }
+        ).apply {
+            addCharacteristic(imuChar)
+            addCharacteristic(resultChar)
+        }
 
         gattServer = bluetoothManager.openGattServer(context, gattCallback).apply {
             addService(service)
@@ -194,6 +207,26 @@ class BleGattServer(
                     subscribers.remove(device)
                     Log.i(TAG, "${device.address} unsubscribed")
                 }
+            }
+            if (responseNeeded) {
+                gattServer?.sendResponse(
+                    device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value
+                )
+            }
+        }
+
+        @SuppressLint("MissingPermission")
+        override fun onCharacteristicWriteRequest(
+            device: BluetoothDevice,
+            requestId: Int,
+            characteristic: BluetoothGattCharacteristic,
+            preparedWrite: Boolean,
+            responseNeeded: Boolean,
+            offset: Int,
+            value: ByteArray
+        ) {
+            if (characteristic.uuid == RESULT_CHAR_UUID && value.isNotEmpty()) {
+                onResult(value[0].toInt())          // gesture index 0-4 -> UI
             }
             if (responseNeeded) {
                 gattServer?.sendResponse(

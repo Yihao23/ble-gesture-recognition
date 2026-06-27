@@ -11,20 +11,22 @@ whole point — it shows the inference layer is **sensor-source-agnostic**.
 > **Status: working end-to-end.** Phone → BLE → ESP32 → live on-device inference.
 > `idle` / `shake` / `rotate` are robust; taps are recognized with on-device
 > energy + confidence gating (see [Limitations](#limitations--next-steps)).
+> The prediction is written **back** over BLE and shown on the phone — the whole
+> demo runs on a phone + the board alone, no laptop needed.
 
 ---
 
 ## Demo
 
 <p align="center">
-  <img src="docs/images/demo.gif" width="250" alt="Live 6-axis IMU streaming over BLE"/>
+  <img src="docs/images/demo_loop.gif" width="250" alt="Closed-loop demo: gesture recognized on the ESP32 and shown back on the phone"/>
   &nbsp;&nbsp;&nbsp;
   <img src="docs/images/phone_ui.png" width="250" alt="Android BLE-peripheral app UI"/>
 </p>
 
 <p align="center">
-  <em>Android BLE-peripheral app: 6-axis IMU streamed at ~60 Hz over BLE.
-  The blue Z-accelerometer bar rests at +9.81 m/s² — gravity.</em>
+  <em>Closed loop on one screen: the phone streams 6-axis IMU over BLE, the ESP32 runs
+  inference and writes the result back — the “Detected gesture (from ESP32)” card updates live.</em>
 </p>
 
 ## Architecture
@@ -49,8 +51,13 @@ whole point — it shows the inference layer is **sensor-source-agnostic**.
 │                     │                  │  energy + conf gating    │
 │                     │                  │     ▼                    │
 │                     │                  │  gesture → serial / LED  │
+│  "Detected: shake"  │ ◄── BLE write ── │  + write index back      │
 └─────────────────────┘                  └──────────────────────────┘
 ```
+
+**Closed loop:** the predicted gesture index (1 byte) is written *back* over the same BLE
+connection to the phone, which displays it live in a "Detected gesture" card — so the entire
+demo runs on a phone plus the board, with no laptop in the loop.
 
 ## Results
 
