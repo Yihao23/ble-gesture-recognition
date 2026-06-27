@@ -1,0 +1,44 @@
+# Zephyr build
+build/
+build_*/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+
+# Models (binary, regenerable) — keep the deployed int8 model as a showcase artifact
+training/models/*.h5
+training/models/*.tflite
+training/models/*.keras
+!training/models/gesture_int8.tflite
+
+# Dataset (regenerable, large)
+training/dataset/
+training/dataset.npz
+
+# Raw phone exports / sample recordings (data, not code)
+*.zip
+milestone1_recording/
+
+# Android (Gradle) build artifacts
+.gradle/
+local.properties
+*.iml
+.kotlin/
+captures/
+
+# Generated C arrays
+**/model_data.cc
+**/model_data.h
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Logs
+*.log
+*.csv.tmp
